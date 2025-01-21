@@ -63,24 +63,11 @@ return {
         -- ruff = true,
 
         -- Probably want to disable formatting for this lang server
-        ts_ls = true,
-        vuels = true,
-
-        volar = {
-          filetypes = { "typescript", "javascript", "javascriptreact", "typescriptreact", "vue", "json" },
-          init_options = {
-            typescript = {
-              tsdk = "/Users/robinho/.local/share/mise/installs/node/22.9.0/lib/node_modules/typescript/lib", -- Correct path to the TypeScript SDK
-            },
-          },
-          settings = {
-            codeLens = {
-              references = true, -- Enable CodeLens for references
-              pugTools = true, -- Enable Pug template support
-            },
-            format = {
-              enable = true, -- Enable auto-formatting
-            },
+        ts_ls = {
+          root_dir = require("lspconfig").util.root_pattern "package.json",
+          single_file = false,
+          server_capabilities = {
+            documentFormattingProvider = false,
           },
         },
 
@@ -103,6 +90,11 @@ return {
               schemas = require("schemastore").yaml.schemas(),
             },
           },
+        },
+
+        gitlab_ci_ls = {
+          root_dir = require("lspconfig").util.root_pattern ".gitlab-ci.yml",
+          filetypes = { "yml" },
         },
 
         helm_ls = {
@@ -133,16 +125,14 @@ return {
 
         ocamllsp = {
           manual_install = true,
+          cmd = { "dune", "tools", "exec", "ocamllsp" },
           settings = {
             codelens = { enable = true },
+            inlayHints = { enable = true },
+            syntaxDocumentation = { enable = true },
           },
 
-          filetypes = {
-            "ocaml",
-            "ocaml.interface",
-            "ocaml.menhir",
-            "ocaml.cram",
-          },
+          server_capabilities = { semanticTokensProvider = false },
 
           -- TODO: Check if i still need the filtypes stuff i had before
         },
