@@ -2,7 +2,19 @@ return {
   {
     "neovim/nvim-lspconfig",
     dependencies = {
-      "folke/neodev.nvim",
+      {
+        -- `lazydev` configures Lua LSP for your Neovim config, runtime and plugins
+        -- used for completion, annotations and signatures of Neovim apis
+        "folke/lazydev.nvim",
+        ft = "lua",
+        opts = {
+          library = {
+            -- Load luvit types when the `vim.uv` word is found
+            { path = "luvit-meta/library", words = { "vim%.uv" } },
+          },
+        },
+      },
+      { "Bilal2453/luvit-meta", lazy = true },
       "williamboman/mason.nvim",
       "williamboman/mason-lspconfig.nvim",
       "WhoIsSethDaniel/mason-tool-installer.nvim",
@@ -10,19 +22,43 @@ return {
       { "j-hui/fidget.nvim", opts = {} },
       { "https://git.sr.ht/~whynothugo/lsp_lines.nvim" },
 
+      { "elixir-tools/elixir-tools.nvim" },
+
       -- Autoformatting
       "stevearc/conform.nvim",
 
       -- Schema information
       "b0o/SchemaStore.nvim",
+      -- { dir = "~/plugins/ocaml.nvim" },
     },
     config = function()
-      require("neodev").setup {
-        -- library = {
-        --   plugins = { "nvim-dap-ui" },
-        --   types = true,
-        -- },
-      }
+      -- Don't do LSP stuff if we're in Obsidian Edit mode
+      if vim.g.obsidian then
+        return
+      end
+
+      local extend = function(name, key, values)
+        local mod = require(string.format("lspconfig.configs.%s", name))
+        local default = mod.default_config
+        local keys = vim.split(key, ".", { plain = true })
+        while #keys > 0 do
+          local item = table.remove(keys, 1)
+          default = default[item]
+        end
+
+        if vim.islist(default) then
+          for _, value in ipairs(default) do
+            table.insert(values, value)
+          end
+        else
+          for item, value in pairs(default) do
+            if not vim.tbl_contains(values, item) then
+              values[item] = value
+            end
+          end
+        end
+        return values
+      end
 
       local capabilities = nil
       if pcall(require, "cmp_nvim_lsp") then
@@ -56,13 +92,14 @@ return {
         rust_analyzer = true,
         svelte = true,
         templ = true,
-        cssls = true,
-        pylsp = true,
-        jinja_lsp = true,
-        -- pyright = true,
-        -- ruff = true,
+        taplo = true,
+        intelephense = true,
 
-        -- Probably want to disable formatting for this lang server
+        pyright = true,
+        mojo = { manual_install = true },
+
+        -- Enabled biome formatting, turn off all the other ones generally
+        biome = true,
         ts_ls = {
           root_dir = require("lspconfig").util.root_pattern "package.json",
           single_file = false,
@@ -70,8 +107,11 @@ return {
             documentFormattingProvider = false,
           },
         },
-
+        -- denols = true,
         jsonls = {
+          server_capabilities = {
+            documentFormattingProvider = false,
+          },
           settings = {
             json = {
               schemas = require("schemastore").json.schemas(),
@@ -80,6 +120,12 @@ return {
           },
         },
 
+        -- cssls = {
+        --   server_capabilities = {
+        --     documentFormattingProvider = false,
+        --   },
+        -- },
+
         yamlls = {
           settings = {
             yaml = {
@@ -87,45 +133,19 @@ return {
                 enable = false,
                 url = "",
               },
-              schemas = require("schemastore").yaml.schemas(),
+              -- schemas = require("schemastore").yaml.schemas(),
             },
           },
         },
 
-        gitlab_ci_ls = {
-          root_dir = require("lspconfig").util.root_pattern ".gitlab-ci.yml",
-          filetypes = { "yml" },
-        },
-
-        helm_ls = {
-          settings = {
-            ["helm-ls"] = {
-              logLevel = "info",
-              valuesFiles = {
-                mainValuesFile = "values.yaml",
-                lintOverlayValuesFile = "values.lint.yaml",
-                additionalValuesFilesGlobPattern = "values*.yaml",
-              },
-              yamlls = {
-                path = "/Users/robinho/.local/share/nvim/mason/bin/yaml-language-server",
-                enabled = true,
-                diagnosticsLimit = 50,
-                showDiagnosticsDirectly = false,
-                config = {
-                  schemas = {
-                    kubernetes = "templates/**",
-                  },
-                  completion = true,
-                  hover = true,
-                },
-              },
-            },
-          },
-        },
+        ols = {},
+        racket_langserver = { manual_install = true },
+        roc_ls = { manual_install = true },
 
         ocamllsp = {
           manual_install = true,
           cmd = { "dune", "tools", "exec", "ocamllsp" },
+          -- cmd = { "dune", "exec", "ocamllsp" },
           settings = {
             codelens = { enable = true },
             inlayHints = { enable = true },
@@ -137,30 +157,64 @@ return {
           -- TODO: Check if i still need the filtypes stuff i had before
         },
 
-        elixirls = {
-          cmd = { "/Users/robinho/.local/share/nvim/mason/bin/elixir-ls" },
-          root_dir = require("lspconfig.util").root_pattern { "mix.exs" },
-          server_capabilities = {
-            -- completionProvider = true,
-            -- definitionProvider = false,
-            documentFormattingProvider = false,
-          },
+        gleam = {
+          manual_install = true,
         },
+
+        -- elixirls = {
+        --   cmd = { "/Users/robinho/.local/share/nvim/mason/bin/elixir-ls" },
+        --   root_dir = require("lspconfig.util").root_pattern { "mix.exs" },
+        --   -- server_capabilities = {
+        --   --   -- completionProvider = true,
+        --   --   definitionProvider = true,
+        --   --   documentFormattingProvider = false,
+        --   -- },
+        -- },
 
         lexical = {
           cmd = { "/Users/robinho/.local/share/nvim/mason/bin/lexical", "server" },
           root_dir = require("lspconfig.util").root_pattern { "mix.exs" },
           server_capabilities = {
             completionProvider = vim.NIL,
-            definitionProvider = false,
+            definitionProvider = true,
           },
         },
 
         clangd = {
+          -- cmd = { "clangd", unpack(require("custom.clangd").flags) },
+          -- TODO: Could include cmd, but not sure those were all relevant flags.
+          --    looks like something i would have added while i was floundering
           init_options = { clangdFileStatus = true },
+
           filetypes = { "c" },
         },
+
+        tailwindcss = {
+          init_options = {
+            userLanguages = {
+              elixir = "phoenix-heex",
+              eruby = "erb",
+              heex = "phoenix-heex",
+            },
+          },
+          filetypes = extend("tailwindcss", "filetypes", { "ocaml.mlx" }),
+          settings = {
+            tailwindCSS = {
+              experimental = {
+                classRegex = {
+                  [[class: "([^"]*)]],
+                  [[className="([^"]*)]],
+                },
+              },
+              includeLanguages = extend("tailwindcss", "settings.tailwindCSS.includeLanguages", {
+                ["ocaml.mlx"] = "html",
+              }),
+            },
+          },
+        },
       }
+
+      -- require("ocaml").setup()
 
       local servers_to_install = vim.tbl_filter(function(key)
         local t = servers[key]
@@ -210,14 +264,15 @@ return {
           local builtin = require "telescope.builtin"
 
           vim.opt_local.omnifunc = "v:lua.vim.lsp.omnifunc"
-          vim.keymap.set("n", "gd", vim.lsp.buf.definition, { buffer = 0 })
-          vim.keymap.set("n", "gr", vim.lsp.buf.references, { buffer = 0 })
+          vim.keymap.set("n", "gd", builtin.lsp_definitions, { buffer = 0 })
+          vim.keymap.set("n", "gr", builtin.lsp_references, { buffer = 0 })
           vim.keymap.set("n", "gD", vim.lsp.buf.declaration, { buffer = 0 })
           vim.keymap.set("n", "gT", vim.lsp.buf.type_definition, { buffer = 0 })
           vim.keymap.set("n", "K", vim.lsp.buf.hover, { buffer = 0 })
 
           vim.keymap.set("n", "<space>cr", vim.lsp.buf.rename, { buffer = 0 })
           vim.keymap.set("n", "<space>ca", vim.lsp.buf.code_action, { buffer = 0 })
+          vim.keymap.set("n", "<space>wd", builtin.lsp_document_symbols, { buffer = 0 })
 
           local filetype = vim.bo[bufnr].filetype
           if disable_semantic_tokens[filetype] then
@@ -238,25 +293,21 @@ return {
         end,
       })
 
-      -- Autoformatting Setup
-      require("conform").setup {
-        formatters_by_ft = {
-          lua = { "stylua" },
-        },
-      }
-
-      vim.api.nvim_create_autocmd("BufWritePre", {
-        callback = function(args)
-          require("conform").format {
-            bufnr = args.buf,
-            lsp_fallback = true,
-            quiet = true,
-          }
-        end,
-      })
+      require("custom.autoformat").setup()
 
       require("lsp_lines").setup()
       vim.diagnostic.config { virtual_text = true, virtual_lines = false }
+
+      vim.keymap.set("", "<leader>l", function()
+        local config = vim.diagnostic.config() or {}
+        if config.virtual_text then
+          vim.diagnostic.config { virtual_text = false, virtual_lines = true }
+        else
+          vim.diagnostic.config { virtual_text = true, virtual_lines = false }
+        end
+      end, { desc = "Toggle lsp_lines" })
+
+      require("custom.elixir").setup()
     end,
   },
 }
