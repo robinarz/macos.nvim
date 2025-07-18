@@ -67,6 +67,23 @@ return {
 
       local lspconfig = require "lspconfig"
 
+      -- It checks the current PATH for an LSP executable.
+      -- If found, it returns the command. If not, it returns nil,
+      -- allowing lspconfig to use the Mason-installed LSP as a fallback.
+      -- local get_lsp_cmd = function(server_name)
+      --   local lsp_executable = vim.fn.exepath(server_name)
+      --
+      --   -- Check if an executable was found AND it's NOT the one from Mason
+      --   if lsp_executable ~= "" and not lsp_executable:find "/.local/share/nvim/mason/" then
+      --     return { lsp_executable }
+      --   end
+      --
+      --   -- Fall back to Mason's default if no other executable is found
+      --   return nil
+      -- end
+
+      -- local is_nix_env = os.getenv "IN_NIX_SHELL" ~= nil
+
       local servers = {
         bashls = true,
         gopls = {
@@ -89,8 +106,10 @@ return {
             semanticTokensProvider = vim.NIL,
           },
         },
+        -- rust_analyzer = is_nix_env and {
+        --   cmd = get_lsp_cmd "rust-analyzer",
+        --   manual_install = true,
         rust_analyzer = true,
-        svelte = true,
         templ = true,
         taplo = true,
         intelephense = true,
@@ -144,8 +163,9 @@ return {
 
         ocamllsp = {
           manual_install = true,
-          cmd = { "dune", "tools", "exec", "ocamllsp" },
+          -- cmd = { "dune", "tools", "exec", "ocamllsp" },
           -- cmd = { "dune", "exec", "ocamllsp" },
+          cmd = { "ocamllsp" },
           settings = {
             codelens = { enable = true },
             inlayHints = { enable = true },
@@ -308,6 +328,20 @@ return {
       end, { desc = "Toggle lsp_lines" })
 
       require("custom.elixir").setup()
+
+      --- AUTOMATICALLY RESTART LSP ON ENVIRONMENT CHANGE
+      -- Initialize a global variable to track the environment type
+      -- vim.g.last_is_nix_env = os.getenv "IN_NIX_SHELL" ~= nil
+      -- vim.api.nvim_create_autocmd("BufEnter", {
+      --   group = vim.api.nvim_create_augroup("NixLspConditionalRestart", { clear = true }),
+      --   callback = function()
+      --     local current_is_nix_env = os.getenv "IN_NIX_SHELL" ~= nil
+      --     if current_is_nix_env ~= vim.g.last_is_nix_env then
+      --       vim.g.last_is_nix_env = current_is_nix_env
+      --       vim.cmd "LspRestart rust_analyzer"
+      --     end
+      --   end,
+      -- })
     end,
   },
 }
